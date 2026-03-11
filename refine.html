@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RO 精煉戰情室 6.5.1</title>
+    <style>
+        :root { 
+            --primary: #2980b9; --bg: #ecf0f1; --success: #27ae60; --fail: #e74c3c; 
+            --upgrade-s: #8e44ad; --upgrade-f: #576574; --dark: #2c3e50; --text: #34495e; --border: #dcdde1;
+        }
+        body { font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text); }
+        .grid-main { display: grid; grid-template-columns: 350px 1fr 350px; gap: 15px; max-width: 1700px; margin: 0 auto; }
+        @media (max-width: 1200px) { .grid-main { grid-template-columns: 1fr; } }
+        
+        .card { background: #fff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); padding: 18px; margin-bottom: 15px; border: 1px solid var(--border); }
+        h2 { font-size: 1rem; color: var(--primary); margin: 0 0 12px 0; border-left: 4px solid var(--primary); padding-left: 8px; }
+        
+        .calc-box { background: #f8f9fa; border: 1px solid #ddd; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.8rem; }
+        .calc-box input { width: 90px !important; padding: 2px 5px !important; border: 1px solid #ccc; border-radius: 4px; }
+        .sync-btn { background: var(--success); color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer; width: 100%; margin-top: 10px; font-weight: bold; }
+
+        .status-hero { background: var(--dark); color: white; border-radius: 15px; padding: 20px; text-align: center; border-bottom: 8px solid var(--primary); position: relative; }
+        .lv-text { font-size: 4rem; font-weight: 900; color: #f1c40f; line-height: 1; margin: 10px 0; }
+        .refine-hint { background: #e67e22; color: white; font-size: 0.8rem; padding: 4px 12px; border-radius: 20px; display: inline-block; margin-bottom: 10px; }
+        
+        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .btn { border: none; padding: 12px; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; font-size: 1rem; transition: 0.2s; }
+        .btn-fail { background: var(--fail); } .btn-succ { background: var(--success); }
+        .btn-up-fail { background: var(--upgrade-f); } .btn-up-succ { background: var(--upgrade-s); }
+        .btn:disabled { background: #bdc3c7 !important; cursor: not-allowed; opacity: 0.5; }
+
+        .mat-item { display: flex; justify-content: space-between; background: #f8f9fa; padding: 6px 12px; border-radius: 6px; border: 1px solid #eee; font-size: 0.85rem; margin-bottom: 4px; }
+        .twd-hero { background: #e3f2fd; padding: 10px; text-align: center; border-radius: 10px; border: 1px solid #bbdefb; margin-bottom: 10px; }
+        
+        .luck-tag { display: inline-block; padding: 4px 12px; border-radius: 5px; font-weight: bold; margin-top: 8px; font-size: 0.9rem; }
+        .luck-god { background: #ffd700; color: #b8860b; }
+        .luck-hell { background: #2c3e50; color: #fff; }
+
+        .archive-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; background: white; border-radius: 12px; overflow: hidden; margin-top: 10px; }
+        .archive-table th { background: var(--dark); color: white; padding: 10px; }
+        .archive-table td { border-bottom: 1px solid #eee; padding: 12px; text-align: center; }
+        
+        .sim-box { background: #fff3e0; border: 1px solid #ffe0b2; padding: 15px; border-radius: 10px; margin-top: 15px; }
+        .full-width { grid-column: 1 / -1; }
+    </style>
+</head>
+<body>
+
+<div class="grid-main">
+    <div class="side-config">
+        <div class="card">
+            <h2>💎 原料成本計算器</h2>
+            <div class="calc-box">
+                <table width="100%">
+                    <tr><td>乙太星塵</td><td><input type="number" id="base_dust" value="50000"></td></tr>
+                    <tr style="background:#e3f2fd;"><td>乙太魔石</td><td><input type="number" id="base_magic" value="350000"></td></tr>
+                    <tr><td>一般鋁</td><td><input type="number" id="base_alu" value="10000"></td></tr>
+                    <tr><td>濃縮鋁</td><td><input type="number" id="base_calu" value="200000"></td></tr>
+                    <tr><td>高濃鋁</td><td><input type="number" id="base_halu" value="500000"></td></tr>
+                </table>
+                <button class="sync-btn" onclick="syncPrices()">⚡ 同步價格至設定</button>
+            </div>
+        </div>
+        <div class="card">
+            <h2>⚙️ 價格與策略</h2>
+            <div class="calc-box" style="background:none; border:none;">
+                <table width="100%">
+                    <tr><td>1T 換 R幣</td><td><input type="number" id="p_rate" value="200000" onchange="save()"></td></tr>
+                    <tr><td>鐵祝門檻</td><td><select id="b_start" onchange="save()"><option value="10">從 +10 開始</option><option value="7">從 +7 開始</option></select></td></tr>
+                    <tr><td>乙太鋁</td><td><input type="number" id="p_alu" value="145000" onchange="save()"></td></tr>
+                    <tr><td>濃縮乙太鋁</td><td><input type="number" id="p_calu" value="974999" onchange="save()"></td></tr>
+                    <tr><td>高濃乙太鋁</td><td><input type="number" id="p_halu" value="1199999" onchange="save()"></td></tr>
+                    <tr><td>鐵匠祝福</td><td><input type="number" id="p_bless" value="3624978" onchange="save()"></td></tr>
+                    <tr><td>乙太天藍</td><td><input type="number" id="p_blue" value="2000000" onchange="save()"></td></tr>
+                    <tr><td>乙太黃</td><td><input type="number" id="p_yellow" value="2000000" onchange="save()"></td></tr>
+                    <tr><td>乙太紫</td><td><input type="number" id="p_purple" value="2000000" onchange="save()"></td></tr>
+                    <tr><td>乙太琥珀</td><td><input type="number" id="p_amber" value="2000000" onchange="save()"></td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-refine">
+        <div class="card">
+            <input id="itemName" type="text" placeholder="裝備名稱..." style="width:100%; font-size:1.5rem; font-weight:bold; border:none; border-bottom:3px solid var(--primary); margin-bottom:15px; outline:none; text-align:center;" oninput="save()">
+            
+            <div class="status-hero">
+                <div id="hintText" class="refine-hint">使用：一般乙太鋁</div>
+                <div id="dispRank" style="font-size:1.1rem; opacity:0.8;">無階級</div>
+                <div class="lv-text" id="dispLv">+0</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; font-size:0.9rem;">
+                    <div>精煉率 <span id="prob_r" style="color:#f1c40f;">100%</span></div>
+                    <div>升階率 <span id="prob_u" style="color:#f1c40f;">--</span></div>
+                </div>
+            </div>
+
+            <div class="btn-grid">
+                <button id="btn_rf" class="btn btn-fail" onclick="act(false,'r')">❌ 精煉失敗</button>
+                <button id="btn_rs" class="btn btn-succ" onclick="act(true,'r')">✅ 精煉成功</button>
+                <button id="btn_uf" class="btn btn-up-fail" onclick="act(false,'u')" disabled>❌ 升階失敗</button>
+                <button id="btn_us" class="btn btn-up-succ" onclick="act(true,'u')" disabled>✅ 升階成功</button>
+            </div>
+            
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:15px;">
+                <button onclick="reset()" style="padding:10px; border:1px solid #ccc; background:white; cursor:pointer; border-radius:6px;">♻️ 重置</button>
+                <button onclick="archive()" style="padding:10px; background:var(--primary); color:white; border:none; cursor:pointer; border-radius:6px;">💾 結案存檔</button>
+            </div>
+
+            <div class="sim-box">
+                <h2 style="color:#e67e22; border-left-color:#e67e22; margin-top:0;">🧪 模擬基準 (歐非判定)</h2>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+                    <select id="sim_target_rank" style="padding:6px; border-radius:4px; border:1px solid #ccc;">
+                        <option value="current">目標：維持當前階級</option>
+                        <option value="D">目標：D 階</option>
+                        <option value="C">目標：C 階</option>
+                        <option value="B">目標：B 階</option>
+                        <option value="A">目標：A 階</option>
+                    </select>
+                    <select id="sim_target_lv" style="padding:6px; border-radius:4px; border:1px solid #ccc;">
+                        <option value="10">目標：+10</option><option value="11">目標：+11</option>
+                        <option value="12">目標：+12</option><option value="13">目標：+13</option><option value="14">目標：+14</option>
+                    </select>
+                </div>
+                <button onclick="runSimulation()" style="width:100%; padding:10px; background:#e67e22; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">先按此執行 100 次模擬基準</button>
+                <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; font-size:0.75rem; margin-top:12px; text-align:center;">
+                    <div>模擬平均 R: <b id="sim_zeny_val">0</b></div>
+                    <div>平均 TWD: <b id="sim_twd_val">0</b></div>
+                    <div>期望失敗: <b id="sim_fail_val">0</b></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="side-stats">
+        <div class="card">
+            <div class="twd-hero">
+                <div id="s_zeny" style="font-size:1.1rem; font-weight:bold; color:var(--primary);">0</div>
+                <div style="font-size:0.7rem; color:#666;">Total Zeny</div>
+                <hr style="margin:5px 0; opacity:0.1;">
+                <div id="s_twd" style="font-size:2.4rem; font-weight:900;">0</div>
+                <div>TWD</div>
+                <div id="luck_status" class="luck-tag luck-norm">需模擬基準</div>
+            </div>
+            <h2>📈 即時消耗統計</h2>
+            <div class="material-list">
+                <div class="mat-item"><span>一般乙太鋁</span><b id="s_alu">0</b></div>
+                <div class="mat-item"><span>濃縮乙太鋁</span><b id="s_calu">0</b></div>
+                <div class="mat-item"><span>高濃乙太鋁</span><b id="s_halu">0</b></div>
+                <div class="mat-item"><span>鐵匠祝福</span><b id="s_bless">0</b></div>
+                <hr style="opacity:0.2;">
+                <div class="mat-item"><span>乙太天藍(D)</span><b id="s_blue">0</b></div>
+                <div class="mat-item"><span>乙太黃(C)</span><b id="s_yellow">0</b></div>
+                <div class="mat-item"><span>乙太紫(B)</span><b id="s_purple">0</b></div>
+                <div class="mat-item"><span>乙太琥珀(A)</span><b id="s_amber">0</b></div>
+                <div class="mat-item"><span>累計失敗</span><b id="s_fail" style="color:var(--fail)">0</b></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card full-width">
+        <h2>📁 結案檔案庫</h2>
+        <table class="archive-table">
+            <thead><tr><th>時間</th><th>裝備</th><th>結果</th><th>消耗 TWD</th><th>管理</th></tr></thead>
+            <tbody id="archBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const PROB_R_MAP = { 0:100, 1:100, 2:100, 3:60, 4:60, 5:40, 6:40, 7:40, 8:40, 9:20, 10:15, 11:15, 12:15, 13:15, 14:15 };
+    const RANK_DEF = { 
+        '無': { n:'D', minLv:9, g:'blue', qty:5, f:500000 }, 
+        'D': { n:'C', minLv:10, g:'yellow', qty:5, f:625000 }, 
+        'C': { n:'B', minLv:11, g:'purple', qty:5, f:1000000 }, 
+        'B': { n:'A', minLv:11, g:'amber', qty:10, f:2500000 } 
+    };
+
+    let curLv = 0, curRank = '無';
+    let stats = { alu:0, calu:0, halu:0, bless:0, blue:0, yellow:0, purple:0, amber:0, fail:0, fee:0 };
+    let simBenchmark = 0;
+
+    function syncPrices() {
+        const magic = val('base_magic'), dust = val('base_dust');
+        document.getElementById('p_alu').value = dust * 1 + val('base_alu') + 10000;
+        document.getElementById('p_calu').value = dust * 2 + val('base_calu') + 20000;
+        document.getElementById('p_halu').value = dust * 3 + val('base_halu') + 50000;
+        document.getElementById('p_blue').value = magic * 3 + 4560 + 100000;
+        document.getElementById('p_yellow').value = magic * 6 + 4560 + 200000;
+        document.getElementById('p_purple').value = magic * 10 + 4560 + 300000;
+        document.getElementById('p_amber').value = magic * 15 + 3420 + 500000;
+        save(); updateUI();
+    }
+
+    function act(isSucc, type) {
+        if (type === 'r') {
+            const r = getRefineRule(curLv); stats[r.id]++; stats.bless += r.bless; stats.fee += r.fee;
+            if (isSucc) curLv++;
+            else { stats.fail++; if(r.bless===0){ if(r.id==='alu') curLv=Math.max(0,curLv-3); else if(curLv===6) curLv=5; else if(curLv>3) curLv--; }}
+        } else {
+            const r = RANK_DEF[curRank]; stats[r.g] += r.qty; stats.fee += r.f;
+            if (isSucc) { curRank = r.n; curLv = 0; } else stats.fail++;
+        }
+        updateUI();
+    }
+
+    function getRefineRule(lv) {
+        const bl = parseInt(document.getElementById('b_start').value);
+        if (lv < 6) return { id: 'alu', label: '一般乙太鋁', bless: 0, fee: 30000 };
+        if (lv === 6) return { id: 'calu', label: '濃縮乙太鋁', bless: 0, fee: 30000 };
+        if (lv <= 9) return { id: 'calu', label: '濃縮乙太鋁', bless: (lv >= bl ? (lv-6) : 0), fee: 30000 };
+        if (lv <= 12) return { id: 'halu', label: '高濃縮乙太鋁', bless: 4, fee: 75000 };
+        return { id: 'halu', label: '高濃縮乙太鋁', bless: (lv === 13 ? 15 : 0), fee: 75000 };
+    }
+
+    function updateUI() {
+        document.getElementById('dispLv').innerText = `+${curLv}`;
+        document.getElementById('dispRank').innerText = curRank==='無'?'無階級':curRank+' 階';
+        document.getElementById('prob_r').innerText = (PROB_R_MAP[curLv]||15)+'%';
+        
+        // 修正點 2: 更新畫面上的鋁提示與鐵祝消耗
+        const rRule = getRefineRule(curLv);
+        document.getElementById('hintText').innerText = `使用：${rRule.label} ${rRule.bless > 0 ? '(鐵祝x' + rRule.bless + ')' : ''}`;
+
+        document.getElementById('btn_rf').disabled = (curLv < 3);
+        const up = RANK_DEF[curRank];
+        const canUp = up && curLv >= up.minLv;
+        document.getElementById('btn_uf').disabled = document.getElementById('btn_us').disabled = !canUp;
+        document.getElementById('prob_u').innerText = canUp ? (curRank==='無'?(curLv===9?10:curLv===10?20:70):curRank==='D'?(curLv===10?20:60):curRank==='C'?50:40)+'%' : '--';
+
+        const cz = (stats.alu*val('p_alu'))+(stats.calu*val('p_calu'))+(stats.halu*val('p_halu'))+(stats.bless*val('p_bless'))+(stats.blue*val('p_blue'))+(stats.yellow*val('p_yellow'))+(stats.purple*val('p_purple'))+(stats.amber*val('p_amber'))+stats.fee;
+        document.getElementById('s_zeny').innerText = cz.toLocaleString();
+        document.getElementById('s_twd').innerText = Math.round(cz/val('p_rate')).toLocaleString();
+        
+        const luckEl = document.getElementById('luck_status');
+        if (cz === 0) { luckEl.innerText = simBenchmark>0?"點擊按鈕開始":"需模擬基準"; luckEl.className="luck-tag luck-norm"; }
+        else if (simBenchmark === 0) { luckEl.innerText = "請先按模擬基準"; }
+        else {
+            const ratio = cz / simBenchmark;
+            if (ratio < 0.5) { luckEl.innerText="天選之子(極歐)"; luckEl.className="luck-tag luck-god"; }
+            else if (ratio < 0.9) { luckEl.innerText="運氣不錯"; luckEl.className="luck-tag luck-good"; }
+            else if (ratio < 1.4) { luckEl.innerText="正常發揮"; luckEl.className="luck-tag luck-norm"; }
+            else { luckEl.innerText="非洲大酋長"; luckEl.className="luck-tag luck-hell"; }
+        }
+        ['alu','calu','halu','bless','blue','yellow','purple','amber','fail'].forEach(k => document.getElementById('s_'+k).innerText = stats[k]);
+    }
+
+    function runSimulation() {
+        const rawTargetRank = document.getElementById('sim_target_rank').value;
+        const targetRank = rawTargetRank === 'current' ? curRank : rawTargetRank;
+        const targetLv = parseInt(document.getElementById('sim_target_lv').value);
+        const rankOrder = ['無', 'D', 'C', 'B', 'A'];
+        if (rankOrder.indexOf(curRank) > rankOrder.indexOf(targetRank)) { alert("目標階級過低"); return; }
+        let totalZ = 0, totalF = 0;
+        for(let i=0; i<100; i++) {
+            let sL=curLv, sR=curRank, sS={alu:0,calu:0,halu:0,bless:0,blue:0,yellow:0,purple:0,amber:0,fee:0,fail:0};
+            while(sS.fail < 20000) {
+                let cIdx=rankOrder.indexOf(sR), tIdx=rankOrder.indexOf(targetRank);
+                if (cIdx===tIdx && sL>=targetLv) break;
+                if (cIdx < tIdx) {
+                    const u = RANK_DEF[sR];
+                    if (sL >= u.minLv) {
+                        const p = (sR==='無'?(sL===9?10:sL===10?20:70):sR==='D'?(sL===10?20:60):sR==='C'?50:40)/100;
+                        sS[u.g]+=u.qty; sS.fee+=u.f; if(Math.random()<p){sR=u.n;sL=0;} else sS.fail++;
+                    } else {
+                        const r=getRefineRule(sL); sS[r.id]++; sS.bless+=r.bless; sS.fee+=r.fee;
+                        if(Math.random()<(PROB_R_MAP[sL]||15)/100) sL++;
+                        else { sS.fail++; if(r.bless===0){ if(r.id==='alu') sL=Math.max(0,sL-3); else if(sL===6) sL=5; else if(sL>3) sL--; }}
+                    }
+                } else {
+                    const r=getRefineRule(sL); sS[r.id]++; sS.bless+=r.bless; sS.fee+=r.fee;
+                    if(Math.random()<(PROB_R_MAP[sL]||15)/100) sL++;
+                    else { sS.fail++; if(r.bless===0){ if(r.id==='alu') sL=Math.max(0,sL-3); else if(sL===6) sL=5; else if(sL>3) sL--; }}
+                }
+            }
+            totalZ += (sS.alu*val('p_alu'))+(sS.calu*val('p_calu'))+(sS.halu*val('p_halu'))+(sS.bless*val('p_bless'))+(sS.blue*val('p_blue'))+(sS.yellow*val('p_yellow'))+(sS.purple*val('p_purple'))+(sS.amber*val('p_amber'))+sS.fee;
+            totalF += sS.fail;
+        }
+        simBenchmark = totalZ / 100;
+        document.getElementById('sim_zeny_val').innerText = Math.round(simBenchmark).toLocaleString();
+        document.getElementById('sim_twd_val').innerText = Math.round(simBenchmark/val('p_rate')).toLocaleString();
+        document.getElementById('sim_fail_val').innerText = Math.round(totalF/100);
+        updateUI();
+    }
+
+    function archive() {
+        const row = `<tr><td>${new Date().toLocaleTimeString()}</td><td>${document.getElementById('itemName').value || "防具"}</td><td>${curRank}+${curLv}</td><td>${document.getElementById('s_twd').innerText}</td><td><button onclick="this.parentElement.parentElement.remove()">🗑️</button></td></tr>`;
+        document.getElementById('archBody').innerHTML = row + document.getElementById('archBody').innerHTML;
+        reset(true);
+    }
+    function val(id) { return parseInt(document.getElementById(id).value) || 0; }
+    function reset(isSilent=false) { if(isSilent || confirm("確定重置？")) { curLv=0; curRank='無'; stats={alu:0,calu:0,halu:0,bless:0,blue:0,yellow:0,purple:0,amber:0,fail:0,fee:0}; updateUI(); } }
+    function save() { const cfg = { name: document.getElementById('itemName').value, alu: val('p_alu'), calu: val('p_calu'), halu: val('p_halu'), bless: val('p_bless'), blue: val('p_blue'), yellow: val('p_yellow'), purple: val('p_purple'), amber: val('p_amber'), rate: val('p_rate'), start: document.getElementById('b_start').value, b_dust: val('base_dust'), b_magic: val('base_magic'), b_alu: val('base_alu'), b_calu: val('base_calu'), b_halu: val('base_halu') }; localStorage.setItem('ro_v65_cfg', JSON.stringify(cfg)); }
+    window.onload = () => {
+        const s = JSON.parse(localStorage.getItem('ro_v65_cfg'));
+        if(s) { 
+            document.getElementById('itemName').value = s.name || ""; 
+            ['p_alu','p_calu','p_halu','p_bless','p_blue','p_yellow','p_purple','p_amber','p_rate','base_dust','base_magic','base_alu','base_calu','base_halu'].forEach(id => {
+                if(s[id] || s[id]===0) document.getElementById(id).value = s[id];
+            });
+            document.getElementById('b_start').value = s.start;
+        }
+        updateUI();
+    };
+</script>
+</body>
+</html>
