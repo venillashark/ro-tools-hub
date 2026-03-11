@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>RO 財政部長 - 3.90 完美版</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #0984e3; --bg: #f0f2f5; --income-color: #2ecc71; --expense-color: #e74c3c; }
+        body { font-family: "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding: 10px; }
+        
+        .container { max-width: 1200px; margin: 0 auto; display: flex; flex-direction: column; gap: 15px; }
+        
+        @media (min-width: 992px) {
+            .container { flex-direction: row; align-items: flex-start; }
+            aside { width: 320px; flex-shrink: 0; position: sticky; top: 10px; }
+            main { flex-grow: 1; }
+        }
+
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        h2 { font-size: 1.1em; color: var(--primary); border-bottom: 2px solid #eee; padding-bottom: 8px; margin-top: 0; }
+        
+        input, select, button, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        button { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { opacity: 0.8; }
+        
+        .btn-cloud-pull { background: #00cec9; } 
+        .btn-cloud-push { background: #6c5ce7; }
+        .btn-excel { background: #27ae60; }
+        .btn-secondary { background: #636e72; }
+        .del-small { width: auto; background: #ff7675; padding: 6px 12px; font-size: 0.85em; margin: 0; border-radius: 4px; }
+        
+        .setting-section { margin-top: 15px; padding: 10px; background: #fdfdfd; border: 1px solid #f0f0f0; border-radius: 8px; }
+        .setting-item { display: flex; justify-content: space-between; align-items: center; background: #f8f9fa; padding: 8px 12px; margin-top: 8px; border-radius: 6px; font-size: 0.9em; border: 1px solid #eee; }
+        
+        .char-card { display: flex; justify-content: space-between; padding: 12px; background: #eef2f7; border-radius: 8px; margin-bottom: 8px; font-weight: bold; border-left: 4px solid var(--primary); }
+        
+        .grid-charts { display: flex; flex-direction: column; gap: 15px; }
+        @media (min-width: 768px) {
+            .grid-charts { display: grid; grid-template-columns: 1fr 1fr; }
+            .full { grid-column: span 2; }
+        }
+
+        .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; background: white; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; min-width: 450px; }
+        th, td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: left; font-size: 0.95em; }
+        .income { color: var(--income-color); font-weight: bold; }
+        .expense { color: var(--expense-color); font-weight: bold; }
+
+        .summary-box { display: flex; gap: 10px; margin-bottom: 15px; }
+        .summary-item { flex: 1; padding: 15px 10px; border-radius: 10px; text-align: center; color: white; }
+        
+        #imgPrev { max-width: 100%; margin-top: 10px; display: none; border-radius: 8px; border: 1px solid #ddd; }
+        summary { cursor: pointer; color: var(--primary); font-weight: bold; padding: 10px; background: #f0f7ff; border-radius: 6px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <aside>
+        <div class="card">
+            <h2>☁️ 雲端同步</h2>
+            <button class="btn-cloud-pull" onclick="syncFromCloud()">📥 手動讀取</button>
+            <button class="btn-cloud-push" onclick="syncToCloud()">📤 手動推送</button>
+        </div>
+		<div class="card" style="border: 2px dashed var(--primary); margin-top: 20px;">
+    <h2 style="color: var(--primary);">☁️ 雲端同步安全設定 (BYOK)</h2>
+    <p style="font-size: 0.8rem; color: #666;">
+        為保護資安，GitHub 代碼中不儲存 Key。請於下方輸入您的 JSONBin 憑證。
+    </p>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+        <input type="password" id="user_bin_key" placeholder="輸入您的 JSONBin X-Master-Key" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+        <input type="text" id="user_bin_id" placeholder="輸入您的 Bin ID" style="padding: 8px; border-radius: 4px; border: 1px solid #ccc;">
+        <button onclick="saveCloudConfig()" style="background: var(--primary); color: white; border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+            💾 儲存設定至此瀏覽器
+        </button>
+        <button onclick="clearCloudConfig()" style="background: #95a5a6; color: white; border: none; padding: 5px; border-radius: 4px; cursor: pointer; font-size: 0.7rem;">
+            🗑️ 清除儲存的 Key
+        </button>
+    </div>
+</div>
+
+        <div class="card">
+            <h2>👤 角色餘額</h2>
+            <div id="charStatus"></div>
+        </div>
+
+        <div class="card">
+            <h2>⚙️ 後台設定</h2>
+            <details>
+                <summary>點擊展開設定選單</summary>
+                <div class="setting-section">
+                    <label><b>1. 角色管理</b></label>
+                    <input type="text" id="newCharName" placeholder="角色名稱">
+                    <input type="number" id="newCharInitial" placeholder="初始 Zeny">
+                    <button onclick="addCharacter()">新增角色</button>
+                    <div id="charList"></div>
+                </div>
+                <div class="setting-section">
+                    <label><b>2. 分類管理</b></label>
+                    <select id="newCatType">
+                        <option value="income">收入 (+)</option>
+                        <option value="expense">支出 (-)</option>
+                    </select>
+                    <input type="text" id="newCatName" placeholder="分類名稱">
+                    <button onclick="addCategory()">新增分類</button>
+                    <div id="catList"></div>
+                </div>
+                <div class="setting-section">
+                    <label><b>3. 數據導出</b></label>
+                    <button class="btn-excel" onclick="exportCSV()">📊 匯出 CSV</button>
+                    <button class="btn-secondary" onclick="exportData()">💾 備份 JSON</button>
+                </div>
+            </details>
+        </div>
+    </aside>
+
+    <main>
+        <div class="card">
+            <h2>💰 新增收支</h2>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <div><label style="font-size:0.8em">日期</label><input type="date" id="date"></div>
+                <div><label style="font-size:0.8em">角色</label><select id="charSelect"></select></div>
+                <div><label style="font-size:0.8em">分類</label><select id="catSelect"></select></div>
+                <div><label style="font-size:0.8em">金額</label><input type="number" id="amount" placeholder="Zeny"></div>
+            </div>
+            <textarea id="note" rows="2" placeholder="備註內容..." style="margin-top:10px;"></textarea>
+            <input type="file" id="imgInput" accept="image/*" onchange="previewImg(this)">
+            <img id="imgPrev">
+            <button onclick="saveRecord()" style="margin-top:10px; background:#0984e3; padding:15px; font-size: 1.1em;">🚀 送出紀錄</button>
+        </div>
+
+        <div class="card">
+            <div class="summary-box">
+                <div class="summary-item" style="background: #3498db;"><small>今日淨額</small><br><b id="todayNet">0</b></div>
+                <div class="summary-item" style="background: #27ae60;"><small>總餘額</small><br><b id="totalBalance">0</b></div>
+            </div>
+            
+            <div class="grid-charts">
+                <div class="card full"><h2>財富與收支趨勢</h2><canvas id="lineChart" height="150"></canvas></div>
+                <div class="card full">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom:10px;">
+                        <h2 style="border:none; margin:0;">📜 歷史明細</h2>
+                        <select id="pageSize" onchange="savePageSize()" style="width: 85px; margin:0; padding:5px;">
+                            <option value="10">10筆</option><option value="30">30筆</option>
+                        </select>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="recordTable">
+                            <thead><tr><th>日期</th><th>角色</th><th>項目</th><th>金額</th><th>功能</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div style="display:flex; justify-content:center; gap:20px; margin-top:20px; align-items:center;">
+                        <button class="del-small" style="background:#636e72" onclick="changePage(-1)">◀ 上一頁</button>
+                        <span id="pageInfo" style="font-weight:bold;">1 / 1</span>
+                        <button class="del-small" style="background:#636e72" onclick="changePage(1)">下一頁 ▶</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+// --- 雲端設定讀取邏輯 ---
+function getCloudConfig() {
+    return {
+        key: localStorage.getItem('ro_byok_key') || "",
+        id: localStorage.getItem('ro_byok_id') || ""
+    };
+}
+
+// 儲存設定到瀏覽器快取 (GitHub 上看不到這些內容)
+function saveCloudConfig() {
+    const k = document.getElementById('user_bin_key').value;
+    const i = document.getElementById('user_bin_id').value;
+    if(!k || !i) return alert("請完整輸入 Key 與 ID");
+    
+    localStorage.setItem('ro_byok_key', k);
+    localStorage.setItem('ro_byok_id', i);
+    alert("✅ 設定已安全儲存！現在您可以正常使用上傳/下載功能。");
+    location.reload(); // 重新整理頁面讓變數生效
+}
+
+// 清除設定
+function clearCloudConfig() {
+    if(confirm("確定要清除瀏覽器中的 Key 嗎？下次使用需重新輸入。")) {
+        localStorage.removeItem('ro_byok_key');
+        localStorage.removeItem('ro_byok_id');
+        alert("已清除。");
+        location.reload();
+    }
+}
+
+// 渲染時自動填入已存的 Key (方便查看)
+window.addEventListener('DOMContentLoaded', () => {
+    const config = getCloudConfig();
+    if(config.key) document.getElementById('user_bin_key').value = config.key;
+    if(config.id) document.getElementById('user_bin_id').value = config.id;
+});
+
+    let settings = JSON.parse(localStorage.getItem('ro_settings')) || {
+        characters: [{name: '本尊', initial: 0}],
+        categories: [{name: '打怪', type: 'income'}, {name: '買水', type: 'expense'}],
+        pageSize: 10
+    };
+    let records = JSON.parse(localStorage.getItem('ro_pro_records')) || [];
+    let currentPage = 1, lineChart, currentBase64 = null;
+
+    window.onload = () => { syncFromCloud(true); };
+
+    async function syncFromCloud(isAuto = false) {
+        const config = getCloudConfig(); // 取得存放在瀏覽器的 Key
+        if(!config.id || !config.key) {
+            if(!isAuto) alert("請先在下方的 BYOK 設定區儲存您的 Key 與 ID");
+            return;
+        }
+
+        try {
+            const res = await fetch(`https://api.jsonbin.io/v3/b/${config.id}/latest`, { 
+                headers: { 'X-Master-Key': config.key } 
+            });
+            const data = await res.json();
+            if(data.record) {
+                settings = data.record.settings; 
+                records = data.record.records;
+                updateUI(); 
+                if(!isAuto) alert("☁️ 資料已同步成功！");
+            }
+        } catch (e) { 
+            if(!isAuto) alert("讀取失敗，請檢查 Key 與 ID 是否正確"); 
+        }
+    }
+
+    async function autoPushToCloud() {
+        const config = getCloudConfig();
+        if(!config.id || !config.key || config.id.includes('填入')) return;
+
+        try {
+            await fetch(`https://api.jsonbin.io/v3/b/${config.id}`, {
+                method: 'PUT',
+                headers: { 
+                    'Content-Type': 'application/json', 
+                    'X-Master-Key': config.key 
+                },
+                body: JSON.stringify({ settings, records })
+            });
+            console.log("☁️ 雲端同步完成");
+        } catch (e) { 
+            console.error("同步失敗", e); 
+        }
+    }
+
+    function saveAndRefresh() { 
+        localStorage.setItem('ro_settings', JSON.stringify(settings)); 
+        localStorage.setItem('ro_pro_records', JSON.stringify(records)); 
+        updateUI(); 
+        autoPushToCloud();
+    }
+
+    function addCharacter() {
+        const name = document.getElementById('newCharName').value;
+        const initial = parseInt(document.getElementById('newCharInitial').value) || 0;
+        if(name) { settings.characters.push({name, initial}); saveAndRefresh(); }
+    }
+
+    function addCategory() {
+        const name = document.getElementById('newCatName').value;
+        const type = document.getElementById('newCatType').value;
+        if(name) { settings.categories.push({name, type}); saveAndRefresh(); }
+    }
+
+    function deleteSetting(t, i) { if(confirm('確定刪除？')){ settings[t].splice(i,1); saveAndRefresh(); } }
+
+    function updateUI() {
+        document.getElementById('charSelect').innerHTML = settings.characters.map(c => `<option>${c.name}</option>`).join('');
+        const sortedCats = [...settings.categories].sort((a, b) => (a.type === 'income' ? -1 : 1));
+        document.getElementById('catSelect').innerHTML = sortedCats.map(c => `<option value="${c.name}">(${c.type==='income'?'收':'支'}) ${c.name}</option>`).join('');
+        
+        const pageSize = settings.pageSize || 10;
+        const totalPages = Math.ceil(records.length / pageSize) || 1;
+        if(currentPage > totalPages) currentPage = totalPages;
+        document.getElementById('pageInfo').innerText = `${currentPage} / ${totalPages}`;
+
+        const displayData = records.slice().reverse().slice((currentPage-1)*pageSize, currentPage*pageSize);
+        renderTable(displayData);
+        renderCharStatus();
+        calcSummary();
+        renderCharts();
+
+        document.getElementById('charList').innerHTML = settings.characters.map((c, i) => `<div class="setting-item"><span>${c.name}</span><button class="del-small" onclick="deleteSetting('characters',${i})">刪除</button></div>`).join('');
+        document.getElementById('catList').innerHTML = sortedCats.map((c, i) => `<div class="setting-item"><span>[${c.type==='income'?'收':'支'}] ${c.name}</span><button class="del-small" onclick="deleteSetting('categories',${settings.categories.indexOf(c)})">刪除</button></div>`).join('');
+    }
+
+    function renderTable(data) {
+        document.querySelector('#recordTable tbody').innerHTML = data.map(r => `
+            <tr>
+                <td>${r.date.slice(5)}</td>
+                <td><small>${r.character}</small></td>
+                <td><b>${r.category}</b></td>
+                <td class="${r.type}">${(r.type==='income'?'+':'-') + r.amount.toLocaleString()}</td>
+                <td><button class="del-small" onclick="deleteRecord(${records.indexOf(r)})">刪除</button></td>
+            </tr>`).join('');
+    }
+
+    function saveRecord() {
+        const amt = parseInt(document.getElementById('amount').value);
+        if(!amt) return alert("請輸入金額");
+        const catName = document.getElementById('catSelect').value;
+        const cat = settings.categories.find(c => c.name === catName);
+        records.push({ date: document.getElementById('date').value, character: document.getElementById('charSelect').value, category: cat.name, amount: amt, type: cat.type, note: document.getElementById('note').value, image: currentBase64 });
+        currentBase64 = null; document.getElementById('imgPrev').style.display='none'; document.getElementById('amount').value = '';
+        saveAndRefresh();
+    }
+
+    function renderCharStatus() {
+        const sum = {}; settings.characters.forEach(c => sum[c.name] = c.initial);
+        records.forEach(r => { if(sum[r.character] !== undefined) r.type==='income'?sum[r.character]+=r.amount:sum[r.character]-=r.amount; });
+        document.getElementById('charStatus').innerHTML = Object.entries(sum).map(([n,b]) => `<div class="char-card"><span>${n}</span><span>${b.toLocaleString()} Z</span></div>`).join('');
+    }
+
+    function calcSummary() {
+        let total = settings.characters.reduce((a,c)=>a+c.initial,0);
+        let todayNet = 0, todayStr = new Date().toISOString().slice(0,10);
+        records.forEach(r => { const v = r.type==='income'?r.amount:-r.amount; total += v; if(r.date === todayStr) todayNet += v; });
+        document.getElementById('todayNet').innerText = todayNet.toLocaleString();
+        document.getElementById('totalBalance').innerText = total.toLocaleString();
+    }
+
+    function renderCharts() {
+        const dIn={}, dOut={}, dNet={};
+        records.forEach(r => { if(!dNet[r.date]){dIn[r.date]=0; dOut[r.date]=0; dNet[r.date]=0;} r.type==='income'?(dIn[r.date]+=r.amount, dNet[r.date]+=r.amount):(dOut[r.date]+=r.amount, dNet[r.date]-=r.amount); });
+        const labels = Object.keys(dNet).sort();
+        if(lineChart) lineChart.destroy();
+        lineChart = new Chart(document.getElementById('lineChart'), { 
+            type:'line', 
+            data:{ labels, datasets:[
+                {label:'收入', data:labels.map(l=>dIn[l]), borderColor:'#2ecc71', tension:0, hidden: false},
+                {label:'支出', data:labels.map(l=>dOut[l]), borderColor:'#e74c3c', tension:0, hidden: false},
+                {label:'淨資產', data:labels.map(l=>dNet[l]), borderColor:'#3498db', backgroundColor:'rgba(52,152,219,0.1)', fill:true, tension:0}
+            ]}
+        });
+    }
+
+    function exportCSV() {
+        let csv = "\uFEFF日期,角色,項目,金額,類型,備註\n";
+        records.forEach(r => { csv += `${r.date},${r.character},${r.category},${r.amount},${r.type==='income'?'收入':'支出'},${(r.note||'').replace(/,/g,' ')}\n`; });
+        const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' })); a.download = `RO_Report.csv`; a.click();
+    }
+
+    function exportData() {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([JSON.stringify({settings,records})], {type:'application/json'}));
+        a.download = 'RO_Finance_Backup.json';
+        a.click();
+    }
+
+    function previewImg(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = e => { currentBase64 = e.target.result; document.getElementById('imgPrev').src = currentBase64; document.getElementById('imgPrev').style.display = 'block'; };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+    function deleteRecord(idx) { if(confirm('確定刪除此筆紀錄？')){ records.splice(idx,1); saveAndRefresh(); } }
+    function savePageSize() { settings.pageSize = parseInt(document.getElementById('pageSize').value); currentPage = 1; updateUI(); }
+    function changePage(dir) { currentPage += dir; updateUI(); }
+    document.getElementById('date').valueAsDate = new Date();
+    updateUI();
+</script>
+</body>
+</html>
