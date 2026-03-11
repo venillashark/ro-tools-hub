@@ -53,11 +53,11 @@
             <h2>💎 原料成本計算器</h2>
             <div class="calc-box">
                 <table width="100%">
-                    <tr><td>乙太星塵</td><td><input type="number" id="base_dust" value="50000"></td></tr>
-                    <tr style="background:#e3f2fd;"><td>乙太魔石</td><td><input type="number" id="base_magic" value="350000"></td></tr>
-                    <tr><td>一般鋁</td><td><input type="number" id="base_alu" value="10000"></td></tr>
-                    <tr><td>濃縮鋁</td><td><input type="number" id="base_calu" value="200000"></td></tr>
-                    <tr><td>高濃鋁</td><td><input type="number" id="base_halu" value="500000"></td></tr>
+                    <tr><td>乙太星塵</td><td><input type="number" id="base_dust" value="50000" onchange="save()"></td></tr>
+                    <tr style="background:#e3f2fd;"><td>乙太魔石</td><td><input type="number" id="base_magic" value="350000" onchange="save()"></td></tr>
+                    <tr><td>一般鋁</td><td><input type="number" id="base_alu" value="10000" onchange="save()"></td></tr>
+                    <tr><td>濃縮鋁</td><td><input type="number" id="base_calu" value="200000" onchange="save()"></td></tr>
+                    <tr><td>高濃鋁</td><td><input type="number" id="base_halu" value="500000" onchange="save()"></td></tr>
                 </table>
                 <button class="sync-btn" onclick="syncPrices()">⚡ 同步價格至設定</button>
             </div>
@@ -122,7 +122,7 @@
                         <option value="12">目標：+12</option><option value="13">目標：+13</option><option value="14">目標：+14</option>
                     </select>
                 </div>
-                <button onclick="runSimulation()" style="width:100%; padding:10px; background:#e67e22; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">先按此執行 100 次模擬基準</button>
+                <button onclick="runSimulation()" style="width:100%; padding:10px; background:#e67e22; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold;">先按此執行 5000 次模擬基準</button>
                 <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; font-size:0.75rem; margin-top:12px; text-align:center;">
                     <div>模擬平均 R: <b id="sim_zeny_val">0</b></div>
                     <div>平均 TWD: <b id="sim_twd_val">0</b></div>
@@ -161,7 +161,7 @@
     <div class="card full-width">
         <h2>📁 結案檔案庫</h2>
         <table class="archive-table">
-            <thead><tr><th>時間</th><th>裝備</th><th>結果</th><th>消耗 TWD</th><th>管理</th></tr></thead>
+            <thead><tr><th>時間</th><th>裝備</th><th>結果</th><th>消耗 TWD</th><th>消耗統計</th><th>管理</th></tr></thead>
             <tbody id="archBody"></tbody>
         </table>
     </div>
@@ -245,63 +245,137 @@
         ['alu','calu','halu','bless','blue','yellow','purple','amber','fail'].forEach(k => document.getElementById('s_'+k).innerText = stats[k]);
     }
 
-    function runSimulation() {
-        const rawTargetRank = document.getElementById('sim_target_rank').value;
-        const targetRank = rawTargetRank === 'current' ? curRank : rawTargetRank;
-        const targetLv = parseInt(document.getElementById('sim_target_lv').value);
-        const rankOrder = ['無', 'D', 'C', 'B', 'A'];
-        if (rankOrder.indexOf(curRank) > rankOrder.indexOf(targetRank)) { alert("目標階級過低"); return; }
-        let totalZ = 0, totalF = 0;
-        for(let i=0; i<100; i++) {
-            let sL=curLv, sR=curRank, sS={alu:0,calu:0,halu:0,bless:0,blue:0,yellow:0,purple:0,amber:0,fee:0,fail:0};
-            while(sS.fail < 20000) {
-                let cIdx=rankOrder.indexOf(sR), tIdx=rankOrder.indexOf(targetRank);
-                if (cIdx===tIdx && sL>=targetLv) break;
-                if (cIdx < tIdx) {
-                    const u = RANK_DEF[sR];
-                    if (sL >= u.minLv) {
-                        const p = (sR==='無'?(sL===9?10:sL===10?20:70):sR==='D'?(sL===10?20:60):sR==='C'?50:40)/100;
-                        sS[u.g]+=u.qty; sS.fee+=u.f; if(Math.random()<p){sR=u.n;sL=0;} else sS.fail++;
-                    } else {
-                        const r=getRefineRule(sL); sS[r.id]++; sS.bless+=r.bless; sS.fee+=r.fee;
-                        if(Math.random()<(PROB_R_MAP[sL]||15)/100) sL++;
-                        else { sS.fail++; if(r.bless===0){ if(r.id==='alu') sL=Math.max(0,sL-3); else if(sL===6) sL=5; else if(sL>3) sL--; }}
-                    }
-                } else {
-                    const r=getRefineRule(sL); sS[r.id]++; sS.bless+=r.bless; sS.fee+=r.fee;
-                    if(Math.random()<(PROB_R_MAP[sL]||15)/100) sL++;
-                    else { sS.fail++; if(r.bless===0){ if(r.id==='alu') sL=Math.max(0,sL-3); else if(sL===6) sL=5; else if(sL>3) sL--; }}
-                }
-            }
-            totalZ += (sS.alu*val('p_alu'))+(sS.calu*val('p_calu'))+(sS.halu*val('p_halu'))+(sS.bless*val('p_bless'))+(sS.blue*val('p_blue'))+(sS.yellow*val('p_yellow'))+(sS.purple*val('p_purple'))+(sS.amber*val('p_amber'))+sS.fee;
-            totalF += sS.fail;
-        }
-        simBenchmark = totalZ / 100;
-        document.getElementById('sim_zeny_val').innerText = Math.round(simBenchmark).toLocaleString();
-        document.getElementById('sim_twd_val').innerText = Math.round(simBenchmark/val('p_rate')).toLocaleString();
-        document.getElementById('sim_fail_val').innerText = Math.round(totalF/100);
-        updateUI();
+    // --- 第二部分：強化模擬邏輯 (5000次) ---
+	function runSimulation() {
+    // 1. 調整模擬次數為 5000 次
+    const iterations = 5000; 
+    const rawTargetRank = document.getElementById('sim_target_rank').value;
+    const targetRank = rawTargetRank === 'current' ? curRank : rawTargetRank;
+    const targetLv = parseInt(document.getElementById('sim_target_lv').value);
+    const rankOrder = ['無', 'D', 'C', 'B', 'A'];
+    
+    if (rankOrder.indexOf(curRank) > rankOrder.indexOf(targetRank)) { 
+        alert("目標階級過低，無法模擬"); 
+        return; 
     }
 
-    function archive() {
-        const row = `<tr><td>${new Date().toLocaleTimeString()}</td><td>${document.getElementById('itemName').value || "防具"}</td><td>${curRank}+${curLv}</td><td>${document.getElementById('s_twd').innerText}</td><td><button onclick="this.parentElement.parentElement.remove()">🗑️</button></td></tr>`;
-        document.getElementById('archBody').innerHTML = row + document.getElementById('archBody').innerHTML;
-        reset(true);
+    let totalZ = 0, totalF = 0;
+
+    // 開始執行 5000 次大規模模擬
+    for(let i=0; i < iterations; i++) {
+        let sL = curLv, sR = curRank;
+        let sS = {alu:0, calu:0, halu:0, bless:0, blue:0, yellow:0, purple:0, amber:0, fee:0, fail:0};
+        
+        // 安全機制：單次模擬最高失敗 50,000 次自動停止（防當機）
+        while(sS.fail < 50000) {
+            let cIdx = rankOrder.indexOf(sR), tIdx = rankOrder.indexOf(targetRank);
+            if (cIdx === tIdx && sL >= targetLv) break;
+
+            if (cIdx < tIdx) {
+                const u = RANK_DEF[sR];
+                if (sL >= u.minLv) {
+                    const p = (sR==='無'?(sL===9?10:sL===10?20:70):sR==='D'?(sL===10?20:60):sR==='C'?50:40)/100;
+                    sS[u.g]+=u.qty; sS.fee+=u.f; 
+                    if(Math.random() < p){ sR=u.n; sL=0; } else sS.fail++;
+                } else {
+                    const r = getRefineRule(sL); sS[r.id]++; sS.bless+=r.bless; sS.fee+=r.fee;
+                    if(Math.random() < (PROB_R_MAP[sL]||15)/100) sL++;
+                    else { sS.fail++; if(r.bless===0){ if(r.id==='alu') sL=Math.max(0,sL-3); else if(sL===6) sL=5; else if(sL>3) sL--; }}
+                }
+            } else {
+                const r = getRefineRule(sL); sS[r.id]++; sS.bless+=r.bless; sS.fee+=r.fee;
+                if(Math.random() < (PROB_R_MAP[sL]||15)/100) sL++;
+                else { sS.fail++; if(r.bless===0){ if(r.id==='alu') sL=Math.max(0,sL-3); else if(sL===6) sL=5; else if(sL>3) sL--; }}
+            }
+        }
+        totalZ += (sS.alu*val('p_alu'))+(sS.calu*val('p_calu'))+(sS.halu*val('p_halu'))+(sS.bless*val('p_bless'))+(sS.blue*val('p_blue'))+(sS.yellow*val('p_yellow'))+(sS.purple*val('p_purple'))+(sS.amber*val('p_amber'))+sS.fee;
+        totalF += sS.fail;
     }
+
+    // 計算 5000 次的平均值
+    simBenchmark = totalZ / iterations;
+    const avgFail = totalF / iterations;
+
+    // 2. 更新介面數值
+    document.getElementById('sim_zeny_val').innerText = Math.round(simBenchmark).toLocaleString();
+    document.getElementById('sim_twd_val').innerText = Math.round(simBenchmark/val('p_rate')).toLocaleString();
+    
+    // 3. 期望失敗解密：這代表「平均需要失敗幾次」才能達成目標
+    document.getElementById('sim_fail_val').innerText = Math.round(avgFail).toLocaleString();
+    
+    // 同時修改按鈕文字
+    const btn = document.querySelector(".sim-box button");
+    btn.innerText = `✅ 已完成 ${iterations} 次模擬 (基準已建立)`;
+    btn.style.background = "#27ae60";
+
+    updateUI();
+}
+
+    function archive() {
+    // 建立消耗細節字串
+    const detail = `
+        鋁:${stats.alu}|濃:${stats.calu}|高:${stats.halu}|祝:${stats.bless}
+        ${stats.blue>0?'|藍:'+stats.blue:''}${stats.yellow>0?'|黃:'+stats.yellow:''}${stats.purple>0?'|紫:'+stats.purple:''}${stats.amber>0?'|琥:'+stats.amber:''}`;
+
+    const row = `<tr>
+        <td>${new Date().toLocaleTimeString()}</td>
+        <td>${document.getElementById('itemName').value || "防具"}</td>
+        <td>${curRank}+${curLv}</td>
+        <td>${document.getElementById('s_twd').innerText}</td>
+        <td style="font-size:0.7rem; color:#666; text-align:left;">${detail}</td>
+        <td><button onclick="this.parentElement.parentElement.remove()">🗑️</button></td>
+    </tr>`;
+
+    document.getElementById('archBody').innerHTML = row + document.getElementById('archBody').innerHTML;
+    reset(true);
+}
     function val(id) { return parseInt(document.getElementById(id).value) || 0; }
     function reset(isSilent=false) { if(isSilent || confirm("確定重置？")) { curLv=0; curRank='無'; stats={alu:0,calu:0,halu:0,bless:0,blue:0,yellow:0,purple:0,amber:0,fail:0,fee:0}; updateUI(); } }
-    function save() { const cfg = { name: document.getElementById('itemName').value, alu: val('p_alu'), calu: val('p_calu'), halu: val('p_halu'), bless: val('p_bless'), blue: val('p_blue'), yellow: val('p_yellow'), purple: val('p_purple'), amber: val('p_amber'), rate: val('p_rate'), start: document.getElementById('b_start').value, b_dust: val('base_dust'), b_magic: val('base_magic'), b_alu: val('base_alu'), b_calu: val('base_calu'), b_halu: val('base_halu') }; localStorage.setItem('ro_v65_cfg', JSON.stringify(cfg)); }
-    window.onload = () => {
-        const s = JSON.parse(localStorage.getItem('ro_v65_cfg'));
-        if(s) { 
-            document.getElementById('itemName').value = s.name || ""; 
-            ['p_alu','p_calu','p_halu','p_bless','p_blue','p_yellow','p_purple','p_amber','p_rate','base_dust','base_magic','base_alu','base_calu','base_halu'].forEach(id => {
-                if(s[id] || s[id]===0) document.getElementById(id).value = s[id];
-            });
-            document.getElementById('b_start').value = s.start;
-        }
-        updateUI();
+    function save() {
+    const cfg = {
+        name: document.getElementById('itemName').value,
+        p_rate: val('p_rate'),
+        b_start: document.getElementById('b_start').value,
+        // 精煉材料價格
+        p_alu: val('p_alu'),
+        p_calu: val('p_calu'),
+        p_halu: val('p_halu'),
+        p_bless: val('p_bless'),
+        // 升階材料價格
+        p_blue: val('p_blue'),
+        p_yellow: val('p_yellow'),
+        p_purple: val('p_purple'),
+        p_amber: val('p_amber'),
+        // 原料成本計算器
+        base_dust: val('base_dust'),
+        base_magic: val('base_magic'),
+        base_alu: val('base_alu'),
+        base_calu: val('base_calu'),
+        base_halu: val('base_halu')
     };
+    localStorage.setItem('ro_v65_cfg', JSON.stringify(cfg));
+    console.log("💾 設定已自動儲存");
+}
+
+// 修正重點：window.onload 必須獨立在外面，不能包在 save() 裡面
+window.onload = () => {
+    const s = JSON.parse(localStorage.getItem('ro_v65_cfg'));
+    if(s) { 
+        // 恢復裝備名稱
+        if(s.name) document.getElementById('itemName').value = s.name;
+        // 恢復所有數值
+        const fields = [
+            'p_alu','p_calu','p_halu','p_bless','p_blue','p_yellow','p_purple','p_amber','p_rate',
+            'base_dust','base_magic','base_alu','base_calu','base_halu'
+        ];
+        fields.forEach(id => {
+            if(s[id] !== undefined) document.getElementById(id).value = s[id];
+        });
+        // 恢復策略設定
+        if(s.b_start) document.getElementById('b_start').value = s.b_start;
+    }
+    updateUI();
+};
 </script>
 </body>
 </html>
